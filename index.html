@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Суфлёр — ГК</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1f2430; --text:#e8eaed; --muted:#9aa3b2;
+  --accent:#4f8cff; --good:#3ecf8e; --warn:#f0b429; --bad:#ff6b6b;
+  --b-pon:#7c5cff; --b-usl:#4f8cff; --b-lic:#3ecf8e; --b-form:#38bdf8; --b-otv:#f0b429; --b-vaz:#ff6b6b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100vh;width:100vw}
+
+/* top bar */
+#bar{display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--panel);
+  border-bottom:1px solid #262b36;flex:0 0 auto;height:46px}
+#bar button{background:var(--panel2);color:var(--text);border:1px solid #2c3340;border-radius:8px;
+  padding:7px 12px;font-size:13px;cursor:pointer}
+#bar button:hover{border-color:var(--accent)}
+#startBtn{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+#stopBtn{display:none}
+#nextBtn{display:none;background:var(--good);border-color:var(--good);color:#06281b;font-weight:700}
+#lockBadge{font-size:12px;font-weight:700;padding:4px 9px;border-radius:6px;display:none}
+#lockBadge.armed{background:rgba(62,207,142,.16);color:var(--good);display:inline-block}
+#lockBadge.locked{background:rgba(240,180,41,.18);color:var(--warn);display:inline-block}
+#fileWarn{display:none;background:#2a1f12;color:#ffd9a0;font-size:12px;padding:6px 12px;border-bottom:1px solid #3a2c18;flex:0 0 auto;line-height:1.4}
+.dot{width:10px;height:10px;border-radius:50%;background:#555;display:inline-block;margin-right:6px}
+.dot.live{background:var(--good);box-shadow:0 0 8px var(--good);animation:pulse 1.2s infinite}
+@keyframes pulse{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
+#statusText{font-size:12px;color:var(--muted)}
+#kbCount{font-size:12px;color:var(--muted);margin-left:auto}
+
+/* stage */
+#stage{flex:1 1 auto;display:flex;flex-direction:column;padding:10px 14px;overflow:hidden;min-height:0}
+#qtitle{flex:0 0 auto;font-weight:700;line-height:1.2;margin:0 0 8px;color:#fff;
+  font-size:clamp(15px,2.4vw,26px)}
+#qnum{display:inline-block;background:var(--accent);color:#fff;border-radius:6px;padding:1px 8px;margin-right:8px;font-size:.78em}
+#body{flex:1 1 auto;min-height:0;overflow:hidden;display:flex;gap:12px;align-items:stretch}
+.col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:10px;min-height:0}
+.block{background:var(--panel);
+  border:1px solid #262b36;border-left:4px solid var(--b-pon);border-radius:10px;
+  padding:7px 10px}
+.block h4{margin:0 0 4px;font-size:1.02em;color:#fff;font-weight:700}
+.block .ln{margin:2px 0;color:#dfe3ea;line-height:1.32}
+.block .ln.sub{padding-left:10px;color:#cdd3dd}
+.b-pon{border-left-color:var(--b-pon)} .b-pon h4{color:#c9bcff}
+.b-usl{border-left-color:var(--b-usl)} .b-usl h4{color:#bcd4ff}
+.b-lic{border-left-color:var(--b-lic)} .b-lic h4{color:#bff0d8}
+.b-form{border-left-color:var(--b-form)} .b-form h4{color:#c5ecff}
+.b-otv{border-left-color:var(--b-otv)} .b-otv h4{color:#ffe2a6}
+.b-vaz{border-left-color:var(--b-vaz);background:#241a1a} .b-vaz h4{color:#ffb3b3}
+
+#heard{flex:0 0 auto;margin-top:6px;padding-top:6px;border-top:1px solid #262b36;
+  font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#empty{margin:auto;text-align:center;color:var(--muted);max-width:560px;line-height:1.5}
+#empty h2{color:var(--text)}
+
+/* panel */
+#panel{position:fixed;top:0;right:0;height:100%;width:340px;max-width:90vw;background:var(--panel);
+  border-left:1px solid #262b36;transform:translateX(100%);transition:transform .2s;z-index:20;
+  display:flex;flex-direction:column;padding:14px;gap:10px;overflow:auto}
+#panel.open{transform:translateX(0)}
+#panel h3{margin:0 0 4px}
+#panel .hint{font-size:12px;color:var(--muted);line-height:1.45}
+#drop{border:2px dashed #39414f;border-radius:10px;padding:16px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer}
+#drop.hover{border-color:var(--accent);color:var(--text)}
+#panel textarea{width:100%;height:120px;background:var(--panel2);color:var(--text);border:1px solid #2c3340;border-radius:8px;padding:8px;font-size:12px;resize:vertical}
+#panel button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;cursor:pointer}
+#panel .sec{border-top:1px solid #262b36;padding-top:10px}
+.kbd{background:#0b0d11;border:1px solid #2c3340;border-radius:5px;padding:1px 5px;font-family:monospace;font-size:11px}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:15;display:none}
+#overlay.open{display:block}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bar">
+    <button id="startBtn">▶ Слушать</button>
+    <button id="stopBtn">■ Стоп</button>
+    <button id="nextBtn">⏭ Следующий вопрос</button>
+    <span id="lockBadge"></span>
+    <span><span class="dot" id="dot"></span><span id="statusText">Ожидание</span></span>
+    <span id="kbCount">База не загружена</span>
+    <button id="panelBtn">☰ Меню</button>
+  </div>
+  <div id="fileWarn">⚠ Открыто как файл (<span class="kbd">file://</span>) — Chrome будет каждый раз спрашивать микрофон. Запусти локальный сервер в папке с файлом: <span class="kbd">python3 -m http.server</span>, затем открой <span class="kbd">http://localhost:8000/suflyor.html</span> — разрешение запомнится навсегда.</div>
+  <div id="stage">
+    <div id="qtitle" style="display:none"></div>
+    <div id="body"></div>
+    <div id="empty">
+      <h2>Суфлёр готов</h2>
+      <p>Открой меню ☰ справа и загрузи файл <b>baza_full.txt</b>. Затем нажми <b>«▶ Слушать»</b> — на услышанный вопрос сразу выйдет весь билет на одном экране.</p>
+    </div>
+    <div id="heard"></div>
+  </div>
+</div>
+
+<div id="overlay"></div>
+<div id="panel">
+  <h3>База и настройки</h3>
+  <div id="drop">Перетащи сюда <b>baza_full.txt</b><br>или нажми для выбора</div>
+  <input id="file" type="file" accept=".txt,.md,text/plain" style="display:none"/>
+  <div class="hint" id="kbInfo">База не загружена.</div>
+
+  <div class="sec">
+    <div class="hint">Или вставь текст базы вручную:</div>
+    <textarea id="manualText" placeholder="### 1 | Название билета..."></textarea>
+    <button id="loadManual">Загрузить из текста</button>
+  </div>
+
+  <div class="sec">
+    <h3 style="font-size:14px">🔒 Фиксация билета</h3>
+    <div class="hint">Как только билет показан — он <b>фиксируется</b>. Пока ты читаешь ответ вслух, страница НЕ сбивается, даже если суфлёр слышит слова из билета. Чтобы перейти к следующему вопросу — нажми <b>«⏭ Следующий вопрос»</b> или <span class="kbd">Пробел</span>.</div>
+    <label class="hint" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="autoSw"/> Авто‑смена по новому вопросу (без кнопки)</label>
+  </div>
+
+  <div class="sec">
+    <h3 style="font-size:14px">🎙 Микрофон</h3>
+    <div class="hint">Если файл открыт как <span class="kbd">file://</span>, Chrome переспрашивает микрофон при каждом запуске — это его ограничение. Открой через локальный сервер (<span class="kbd">python3 -m http.server</span> → <span class="kbd">http://localhost:8000/suflyor.html</span>) — разрешение запомнится навсегда.</div>
+  </div>
+
+  <div class="sec">
+    <h3 style="font-size:14px">⚡ Как работает</h3>
+    <div class="hint">Берётся несколько вариантов распознавания, речь нормализуется, выбирается <b>самый близкий билет</b> (TF‑IDF + косинус + порядок слов). «Договор купли‑продажи» больше не путается с «розничной».</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+<script>
+/* ============================ СОСТОЯНИЕ ============================ */
+let KB = [];            // [{num,title,body,vec,norm,titleStems,allStems}]
+let IDF = {};           // stem -> idf
+let recog=null, micStream=null, recognizing=false;
+let currentNum=null;
+let lastFinal='', lastFinalTs=0;
+let committed=false;       // ответ зафиксирован (была пауза) — идёт чтение, страница не сбивается
+let autoSwitch=true;       // авто-переход на НОВЫЙ вопрос (после паузы); иначе только Пробел
+let lastCommitNum=null;
+
+/* ============================ DOM ============================ */
+const $=id=>document.getElementById(id);
+const startBtn=$('startBtn'), stopBtn=$('stopBtn'), dot=$('dot'), statusText=$('statusText');
+const kbCount=$('kbCount'), kbInfo=$('kbInfo'), panel=$('panel'), overlay=$('overlay');
+const stage=$('stage'), qtitle=$('qtitle'), qbody=$('body'), heard=$('heard'), emptyEl=$('empty');
+const nextBtn=$('nextBtn'), lockBadge=$('lockBadge'), fileWarn=$('fileWarn');
+
+/* ============================ НОРМАЛИЗАЦИЯ ============================ */
+const STOP=new Set(['и','в','во','на','по','о','об','от','до','для','с','со','к','у','за','из','не','или','а','но','же','ли','бы','что','как','какой','какая','какие','каков','чем','где','когда','это','этот','эта','при','его','ее','их','мне','ты','вы','мы','он','она','расскажи','расскажите','расскажешь','объясни','пожалуйста','можно','нужно','надо','расскажите-ка','такое','так','вот','ну','да','нет','про','вопрос']);
+
+function normalize(s){
+  return (s||'').toLowerCase().replace(/ё/g,'е')
+    .replace(/[^a-zа-я0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+function stem(w){
+  w=w.replace(/(ами|ями|ого|его|ыми|ими|ах|ях|ов|ев|ью|ия|ие|ий|ый|ой|ей|ам|ям|ом|ем)$/,'');
+  w=w.replace(/[аеёиоуыэюяьйъ]$/,'');
+  return w.length>6 ? w.slice(0,6) : w;
+}
+function stems(s){
+  const out=[];
+  for(const w of normalize(s).split(' ')){
+    if(!w||STOP.has(w)) continue;
+    if(w.length<3) continue;
+    out.push(stem(w));
+  }
+  return out;
+}
+function uniq(a){ return [...new Set(a)]; }
+function lev(a,b){
+  if(a===b) return 0;
+  const m=a.length,n=b.length;
+  if(Math.abs(m-n)>1) return 2;
+  const d=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]);
+  for(let j=0;j<=n;j++) d[0][j]=j;
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++){
+    d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  }
+  return d[m][n];
+}
+/* нечёткое равенство основ — спасает при кривой диктовке/ослышке */
+function eqs(a,b){ return a===b || (a.length>=5 && b.length>=5 && lev(a,b)<=1); }
+function idf(s){ return IDF[s]!=null?IDF[s]:1.4; }
+function sumIdf(arr){ let s=0; for(const x of arr) s+=idf(x); return s; }
+function matchedIdf(target,qs){ let s=0; for(const t of target){ if(qs.some(q=>eqs(q,t))) s+=idf(t); } return s; }
+function matchedIdfQ(qs,target){ let s=0; for(const q of qs){ if(target.some(t=>eqs(q,t))) s+=idf(q); } return s; }
+/* доля запроса, ложащаяся подряд и по порядку на ядро названия */
+function contigRun(qs,seq){
+  const pos=[];
+  for(const q of qs){ let bi=-1; for(let i=0;i<seq.length;i++){ if(eqs(q,seq[i])){ bi=i; break; } } if(bi>=0) pos.push(bi); }
+  if(!pos.length) return 0;
+  let best=1, run=1;
+  for(let i=1;i<pos.length;i++){ if(pos[i]>=pos[i-1]){ run++; best=Math.max(best,run); } else run=1; }
+  return best/qs.length;
+}
+/* ЯДРО названия билета = сам предмет (до первой точки/двоеточия) */
+function core(title){
+  let c=title.split(/[.:–—]| - /)[0].trim();
+  if(stems(c).length<2) c=title.split(/[.:]/).slice(0,2).join(' ').trim();
+  return c;
+}
+
+/* ============================ ПАРСИНГ БАЗЫ ============================ */
+function parseKB(text){
+  const lines=text.split(/\r?\n/);
+  const items=[]; let cur=null;
+  const re=/^###\s+(\d+)\s*\|\s*(.*)$/;
+  for(const ln of lines){
+    const m=ln.match(re);
+    if(m){ if(cur) items.push(cur); cur={num:+m[1], title:m[2].trim(), bodyLines:[]}; }
+    else if(cur){ cur.bodyLines.push(ln); }
+  }
+  if(cur) items.push(cur);
+  // titles can wrap onto first body line(s): merge leading non-empty body lines
+  // into title until a blank line, only if title doesn't end with a period.
+  for(const it of items){
+    while(it.bodyLines.length && it.bodyLines[0].trim()!=='' &&
+          !/[.:)»]\s*$/.test(it.title) && it.title.length<70){
+      it.title=(it.title+' '+it.bodyLines.shift().trim()).trim();
+    }
+    while(it.bodyLines.length && it.bodyLines[0].trim()==='') it.bodyLines.shift();
+    it.body=it.bodyLines.join('\n');
+  }
+  return items;
+}
+
+function buildIndex(items){
+  KB=items.map(it=>{
+    const c=core(it.title);
+    const coreSeq=stems(c);
+    const coreStems=uniq(coreSeq);
+    const titleStems=uniq(stems(it.title));
+    const restStems=titleStems.filter(s=>!coreStems.includes(s));
+    const bodyStems=uniq(stems(it.body));
+    return {num:it.num, title:it.title, body:it.body, bodyLines:it.bodyLines,
+            core:c, coreSeq, coreStems, restStems, bodyStems, titleStems};
+  });
+  // IDF по ядрам+остатку названия+телу (различительная способность основ)
+  const N=KB.length; const df={};
+  for(const k of KB){
+    for(const s of uniq([...k.coreStems, ...k.restStems, ...k.bodyStems])){ df[s]=(df[s]||0)+1; }
+  }
+  IDF={};
+  for(const s in df){ IDF[s]=Math.log((N+1)/(df[s]+0.5))+0.25; }
+}
+
+function queryVec(qstems){
+  const v={};
+  for(const s of qstems){ v[s]=(v[s]||0)+(IDF[s]!=null?IDF[s]:1.2); }
+  let norm=0; for(const s in v) norm+=v[s]*v[s];
+  return {v, norm:Math.sqrt(norm)||1};
+}
+function cosine(qv,k){
+  let dot=0;
+  for(const s in qv.v){ const w=k.vec[s]; if(w) dot+=qv.v[s]*w; }
+  return dot/(qv.norm*k.vnorm);
+}
+
+/* фразовое выравнивание: награждаем порядок + компактность совпадения с заголовком */
+function alignBonus(qs,ts){
+  const pos=[]; for(const q of qs){ const i=ts.indexOf(q); if(i>=0) pos.push(i); }
+  if(!pos.length) return 0;
+  let best=1, run=1;
+  for(let i=1;i<pos.length;i++){ if(pos[i]>=pos[i-1]){ run++; best=Math.max(best,run); } else run=1; }
+  const span=Math.max(...pos)-Math.min(...pos)+1;
+  const compact=Math.min(1,best/span);
+  const cover=pos.length/qs.length;
+  return 0.08*best*compact + 0.04*cover;
+}
+/* score a single text against KB -> {num,score,second} */
+/* Оценка по ПОЛНОМУ названию билета через его ЯДРО:
+   covCore  — насколько ядро названия покрыто запросом
+   covQuery — насколько слова запроса объяснены названием (отсекает лишние/чужие слова)
+   contig   — слова идут подряд и по порядку (фразовость)
+   Тело — лишь резервный сигнал, когда вопрос задан иначе, чем звучит название. */
+function scoreText(text){
+  const qs=uniq(stems(text));
+  if(!qs.length || !KB.length) return null;
+  const qTot=sumIdf(qs)||1;
+  let best=null, second=0;
+  for(const k of KB){
+    const covCore=matchedIdf(k.coreStems,qs)/(sumIdf(k.coreStems)||1);
+    const titleAll=k.coreStems.concat(k.restStems);
+    const covQuery=matchedIdfQ(qs,titleAll)/qTot;
+    const contig=contigRun(qs,k.coreSeq);
+    let comb=0.45*covCore+0.40*covQuery+0.15*contig;
+    if(comb<0.3){ const cb=matchedIdf(k.bodyStems,qs)/qTot; comb=Math.max(comb,0.26*cb); }
+    if(!best||comb>best.score){ second=best?best.score:0; best={num:k.num,score:comb,k,covQuery}; }
+    else if(comb>second){ second=comb; }
+  }
+  return best?{num:best.num,score:best.score,second,k:best.k,qlen:qs.length,covQuery:best.covQuery}:null;
+}
+/* choose best across alternatives */
+function bestMatch(texts){
+  let best=null;
+  for(const t of texts){
+    const r=scoreText(t);
+    if(r && (!best || r.score>best.score)) best=r;
+  }
+  return best;
+}
+
+/* ============================ ДЕТЕКТОР ВОПРОСА ============================ */
+const Q_FIRST=new Set(['что','как','какой','какая','какие','каков','каковы','чем','где','когда','почему','зачем','можно','нужно','надо','должен','обязан','вправе','верно','правда','является','расскажи','расскажите','объясни','объясните','определи','дай']);
+const Q_PREFIX=[/^расскаж/,/^объясн/,/^определ/,/^что такое/,/^в ч[её]м/,/^чем отлич/,/^каков/];
+const YESNO=[/можно ли/,/можно или нет/,/нужно ли/,/вправе ли/,/верно ли/,/да или нет/,/или нет/];
+function questionScore(text){
+  const t=normalize(text); if(!t) return 0;
+  let s=0; const words=t.split(' ');
+  if(text.includes('?')) s+=3;
+  if(Q_FIRST.has(words[0])) s+=3;
+  if(words.slice(0,3).some(w=>Q_FIRST.has(w))) s+=1;
+  for(const re of Q_PREFIX) if(re.test(t)) s+=3;
+  for(const re of YESNO) if(re.test(t)) s+=3;
+  return s;
+}
+
+/* ============================ РЕНДЕР БЛОКОВ ============================ */
+const HEAD_RULES=[
+  {re:/(ответственн|санкц|неустой|пеня|штраф|убытк)/,cls:'b-otv'},
+  {re:/(важн|различ|соотнош|особенн|нюанс|практик|дат|срок иск)/,cls:'b-vaz'},
+  {re:/(сторон|субъект|лиц|наймодат|нанимат|получател|плательщ|продавец|покупат)/,cls:'b-lic'},
+  {re:/(форм|срок|момент|порядок|заключен|расторж|регистрац)/,cls:'b-form'},
+  {re:/(предмет|существенн|услов|цена|элемент|объект)/,cls:'b-usl'},
+  {re:/(понят|определ|признак|вид|нормат|закрепл|характер|правовое рег)/,cls:'b-pon'},
+];
+const HEAD_WORDS=/^(норматив|понятие|определение|признаки|виды|элемент|предмет|стороны|субъект|форма|цена|срок|содержание|существенные|права и обязанности|ответственность|особенности|порядок|соотношение|различие|разграничение|важно|схема|заключение|расторжение|прекращение|изменение|момент перехода|возникновение)/i;
+
+function isHeader(line){
+  const t=line.trim();
+  if(!t) return false;
+  if(t.length>62) return false;
+  if(/^[\u2022\-\*·]/.test(t)) return false;
+  if(/^\d+[\.\)]/.test(t)) return false;          // numbered list item -> not header
+  if(/^[А-ЯЁ\s]+$/.test(t) && t.length>3) return true; // ALL CAPS (ЭЛЕМЕНТЫ)
+  if(/:\s*$/.test(t)) return true;                 // ends with colon
+  if(HEAD_WORDS.test(t.toLowerCase())) return true;
+  return false;
+}
+function headClass(h){
+  const t=h.toLowerCase();
+  for(const r of HEAD_RULES) if(r.re.test(t)) return r.cls;
+  return 'b-pon';
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function buildBlocks(bodyLines){
+  const blocks=[]; let cur={head:'Суть',cls:'b-pon',items:[]};
+  let started=false;
+  for(const raw of bodyLines){
+    const line=raw.replace(/\s+$/,'');
+    if(line.trim()===''){ continue; }
+    if(isHeader(line)){
+      if(started || cur.items.length){ blocks.push(cur); }
+      const h=line.replace(/:\s*$/,'').trim();
+      cur={head:h, cls:headClass(h), items:[]}; started=true;
+    } else {
+      cur.items.push(line.trim());
+    }
+  }
+  if(cur.items.length||blocks.length===0) blocks.push(cur);
+  return blocks.filter(b=>b.items.length||b.head);
+}
+
+function blockWeight(b){
+  let w=2.4;
+  for(const it of b.items){ w+=Math.max(1,Math.ceil((it.length+1)/26)); }
+  return w;
+}
+function chooseColCount(blocks){
+  const w=window.innerWidth;
+  const byWidth = w<780?1 : w<1180?2 : 3;
+  const total=blocks.reduce((s,b)=>s+blockWeight(b),0);
+  const byContent = total<14?1 : total<34?2 : 3;
+  return Math.max(1, Math.min(byWidth, byContent, blocks.length));
+}
+function distribute(blocks, cols){
+  const arr=Array.from({length:cols},()=>({w:0,blocks:[]}));
+  for(const b of blocks){
+    let m=0; for(let i=1;i<cols;i++) if(arr[i].w<arr[m].w) m=i;
+    arr[m].blocks.push(b); arr[m].w+=blockWeight(b);
+  }
+  return arr.filter(c=>c.blocks.length);   // пустые колонки не занимают место
+}
+function blockHTML(b){
+  let h='<div class="block '+b.cls+'">';
+  if(b.head) h+='<h4>'+esc(b.head)+'</h4>';
+  for(const it of b.items){
+    const sub=/^\d+[\.\)]|^[\u2022\-\*·§]/.test(it);
+    h+='<div class="ln'+(sub?' sub':'')+'">'+esc(it)+'</div>';
+  }
+  return h+'</div>';
+}
+function renderCard(k){
+  emptyEl.style.display='none';
+  qtitle.style.display='block';
+  qtitle.innerHTML='<span id="qnum">'+k.num+'</span>'+esc(k.title);
+  const blocks=buildBlocks(k.bodyLines);
+  const cols=chooseColCount(blocks);
+  const colArr=distribute(blocks,cols);
+  let html='';
+  for(const c of colArr){
+    html+='<div class="col">';
+    for(const b of c.blocks) html+=blockHTML(b);
+    html+='</div>';
+  }
+  qbody.innerHTML=html;
+  fitToScreen();
+}
+
+/* ============================ АВТОПОДГОН ============================ */
+function fitToScreen(){
+  const avail=()=>qbody.clientHeight;
+  let lo=10, hi=26, best=10;
+  qbody.style.overflowY='hidden';
+  for(let i=0;i<20;i++){
+    const mid=(lo+hi)/2;
+    qbody.style.fontSize=mid+'px';
+    if(qbody.scrollHeight<=avail()+1){ best=mid; lo=mid; } else { hi=mid; }
+  }
+  qbody.style.fontSize=best+'px';
+  // если даже на минимуме не влезает — разрешаем прокрутку (читаемость важнее)
+  if(qbody.scrollHeight>avail()+1) qbody.style.overflowY='auto';
+}
+let _rsz=null;
+window.addEventListener('resize',()=>{
+  if(currentNum==null) return;
+  clearTimeout(_rsz);
+  _rsz=setTimeout(()=>{ const k=KB.find(x=>x.num===currentNum); if(k) renderCard(k); },150);
+});
+
+/* ============================ ПОКАЗ С УЧЁТОМ КОНТЕКСТА ============================ */
+// Гейт уверенности: срабатываем только при явном отрыве лучшего билета от второго.
+const STRONG=0.80;       // абсолютно уверенное совпадение названия
+const FIRE_MIN=0.46;     // порог показа при достаточном отрыве
+const FIRE_MARGIN=0.10;  // насколько лучший должен опережать второго
+const DOM_MIN=0.38;      // доминирующий победитель при большом отрыве
+const DOM_MARGIN=0.12;
+
+function scoreForNum(text,num){
+  const k=KB.find(x=>x.num===num); if(!k) return 0;
+  const qs=uniq(stems(text)); if(!qs.length) return 0;
+  const qTot=sumIdf(qs)||1;
+  const covCore=matchedIdf(k.coreStems,qs)/(sumIdf(k.coreStems)||1);
+  const covQuery=matchedIdfQ(qs,k.coreStems.concat(k.restStems))/qTot;
+  const contig=contigRun(qs,k.coreSeq);
+  return 0.45*covCore+0.40*covQuery+0.15*contig;
+}
+function isConfident(best){
+  if(!best) return false;
+  const margin=best.score-(best.second||0);
+  return best.score>=STRONG
+      || (best.score>=FIRE_MIN && margin>=FIRE_MARGIN)
+      || (best.score>=DOM_MIN && margin>=DOM_MARGIN && best.covQuery>=0.55);
+}
+
+function consider(texts, isFinal){
+  if(!KB.length) return;
+  const best=bestMatch(texts);
+  const qsc=Math.max(...texts.map(questionScore));
+  showHeard(texts[0], best, qsc);
+  if(!best) return;
+  const confident=isConfident(best);
+  const margin=best.score-(best.second||0);
+  const sigWords=uniq(stems(texts[0])).length;
+
+  // ФАЗА ПОИСКА: копим фразу, живой предпросмотр, НЕ обрываем на полуслове
+  if(!committed){
+    if(confident && best.num!==currentNum){
+      currentNum=best.num; renderCard(best.k);
+    }
+    if(isFinal && currentNum!=null){
+      committed=true; lastCommitNum=currentNum; updateLockUI();
+    }
+    return;
+  }
+
+  // ФАЗА ЧТЕНИЯ: чтение вслух не сбивает страницу; реагируем только на завершённую фразу-вопрос
+  if(!isFinal) return;
+  if(!autoSwitch) return;
+  if(best.num===currentNum) return;
+  const looksNew = (qsc>=2) || (sigWords<=7 && margin>=0.18);
+  if(confident && margin>=0.15 && looksNew){
+    currentNum=best.num; renderCard(best.k); lastCommitNum=best.num;
+  }
+}
+
+function showHeard(text,best,qsc){
+  const ic = qsc>=2?'❓':'💬';
+  const lock = committed ? '  🔒' : '';
+  const sc = best?(' · '+Math.round(best.score*100)+'% → билет '+best.num):'';
+  heard.textContent=ic+' '+text+sc+lock;
+}
+
+function updateLockUI(){
+  if(!recognizing){ lockBadge.style.display='none'; nextBtn.style.display='none'; lockBadge.className=''; return; }
+  lockBadge.style.display='inline-block';
+  nextBtn.style.display = committed?'inline-block':'none';
+  lockBadge.className = committed?'locked':'armed';
+  lockBadge.textContent = committed ? '🔒 Ответ зафиксирован — читайте' : '🎯 Слушаю вопрос…';
+}
+function arm(){ committed=false; updateLockUI(); if(recognizing) statusText.textContent='Слушаю вопрос…'; }
+
+/* ============================ МИКРОФОН + РАСПОЗНАВАНИЕ ============================ */
+async function ensureMic(){
+  if(micStream) return micStream;
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{
+      echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+  }catch(e){ statusText.textContent='Нет доступа к микрофону'; throw e; }
+  return micStream;
+}
+function initRecog(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ statusText.textContent='Распознавание не поддерживается (нужен Chrome)'; return null; }
+  const r=new SR();
+  r.lang='ru-RU'; r.continuous=true; r.interimResults=true; r.maxAlternatives=5;
+  r.onresult=(ev)=>{
+    for(let i=ev.resultIndex;i<ev.results.length;i++){
+      const res=ev.results[i];
+      const alts=[]; for(let j=0;j<res.length;j++) alts.push(res[j].transcript.trim());
+      if(res.isFinal){ consider(alts,true); }
+      else { consider(alts,false); }
+    }
+  };
+  r.onend=()=>{ if(recognizing){ try{r.start();}catch(e){ setTimeout(()=>{try{r.start()}catch(_){}} ,300);} } };
+  r.onerror=(e)=>{ if(e.error==='no-speech'||e.error==='aborted') return;
+    statusText.textContent='Ошибка: '+e.error; };
+  return r;
+}
+async function start(){
+  if(!KB.length){ openPanel(); return; }
+  try{ await ensureMic(); }catch(e){ return; }
+  if(!recog) recog=initRecog();
+  if(!recog) return;
+  recognizing=true; committed=false;
+  try{ recog.start(); }catch(e){}
+  dot.classList.add('live'); statusText.textContent='Слушаю вопрос…';
+  startBtn.style.display='none'; stopBtn.style.display='inline-block';
+  updateLockUI();
+}
+function stop(){
+  recognizing=false;
+  if(recog){ try{recog.stop();}catch(e){} }
+  dot.classList.remove('live'); statusText.textContent='Остановлено';
+  startBtn.style.display='inline-block'; stopBtn.style.display='none';
+  updateLockUI();
+  // МИКРОФОН НЕ ГЛУШИМ — чтобы повторный старт не переспрашивал разрешение
+}
+window.addEventListener('beforeunload',()=>{ if(micStream) micStream.getTracks().forEach(t=>t.stop()); });
+
+/* ============================ ЗАГРУЗКА БАЗЫ ============================ */
+function loadKBText(text){
+  const items=parseKB(text);
+  if(!items.length){ kbInfo.textContent='Формат не распознан. Нужны строки вида "### N | Название".'; return; }
+  buildIndex(items);
+  kbCount.textContent='База: '+KB.length+' билетов';
+  kbInfo.textContent='Загружено билетов: '+KB.length+'. Можно начинать.';
+  emptyEl.innerHTML='<h2>База загружена ('+KB.length+')</h2><p>Нажми <b>«▶ Слушать»</b>.</p>';
+}
+function readFile(f){ const r=new FileReader(); r.onload=()=>{loadKBText(r.result); closePanel();}; r.readAsText(f,'utf-8'); }
+
+/* ============================ UI ============================ */
+function openPanel(){ panel.classList.add('open'); overlay.classList.add('open'); }
+function closePanel(){ panel.classList.remove('open'); overlay.classList.remove('open'); }
+$('panelBtn').onclick=()=>panel.classList.contains('open')?closePanel():openPanel();
+overlay.onclick=closePanel;
+startBtn.onclick=start; stopBtn.onclick=stop; nextBtn.onclick=arm;
+$('autoSw').onchange=e=>{ autoSwitch=e.target.checked; };
+if($('autoSw')){ $('autoSw').checked=autoSwitch; }
+if(location.protocol==='file:') fileWarn.style.display='block';
+$('drop').onclick=()=>$('file').click();
+$('file').onchange=e=>{ if(e.target.files[0]) readFile(e.target.files[0]); };
+$('loadManual').onclick=()=>{ const t=$('manualText').value.trim(); if(t){loadKBText(t);} };
+const drop=$('drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hover');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hover');}));
+drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) readFile(f); });
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='TEXTAREA') return;
+  if(e.code==='Space'){ e.preventDefault(); if(!recognizing){ start(); } else { arm(); } }
+  else if(e.code==='Escape'){ if(recognizing) stop(); }
+});
+</script>
+</body>
+</html>
