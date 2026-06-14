@@ -274,7 +274,7 @@ function alignBonus(qs,ts){
 /* Оценка по ПОЛНОМУ названию билета через его ЯДРО:
    covCore  — насколько ядро названия покрыто запросом
    covQuery — насколько слова запроса объяснены названием (отсекает лишние/чужие слова)
-   contig   — слова идут подряд и по порядку (фразовость)
+   contig   = slova idut podryad i po poryadku (frazovost)
    Тело — лишь резервный сигнал, когда вопрос задан иначе, чем звучит название. */
 function scoreText(text){
   const qs=uniq(stems(text));
@@ -557,6 +557,7 @@ function loadKBText(text){
   const items=parseKB(text);
   if(!items.length){ kbInfo.textContent='Формат не распознан. Нужны строки вида "### N | Название".'; return; }
   buildIndex(items);
+  try{ localStorage.setItem('kb_text', text); }catch(e){}
   kbCount.textContent='База: '+KB.length+' билетов';
   kbInfo.textContent='Загружено билетов: '+KB.length+'. Можно начинать.';
   emptyEl.innerHTML='<h2>База загружена ('+KB.length+')</h2><p>Нажми <b>«▶ Слушать»</b>.</p>';
@@ -584,6 +585,18 @@ window.addEventListener('keydown',e=>{
   if(e.code==='Space'){ e.preventDefault(); if(!recognizing){ start(); } else { arm(); } }
   else if(e.code==='Escape'){ if(recognizing) stop(); }
 });
+
+/* ============================ АВТО-ЗАГРУЗКА БАЗЫ ============================ */
+// 1) если база уже была загружена на этом устройстве — берём из памяти браузера
+// 2) иначе пробуем подтянуть baza_full.txt из той же папки, где лежит сайт
+async function autoLoadKB(){
+  try{ const cached=localStorage.getItem('kb_text'); if(cached && cached.indexOf('###')>=0){ loadKBText(cached); return; } }catch(e){}
+  try{
+    const resp=await fetch('baza_full.txt',{cache:'no-store'});
+    if(resp.ok){ const t=await resp.text(); if(t && t.indexOf('###')>=0){ loadKBText(t); return; } }
+  }catch(e){}
+}
+autoLoadKB();
 </script>
 </body>
 </html>
